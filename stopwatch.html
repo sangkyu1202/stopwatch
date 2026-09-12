@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>짐 타이머</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #f4c430;
+    --gold-bright: #ffdd66;
+    --gold-dark: #a8791a;
+    --red: #ff3b3b;
+    --red-dark: #8f1010;
+    --ink: #0a0a0d;
+    --panel: rgba(255, 255, 255, 0.05);
+    --panel-border: rgba(244, 196, 48, 0.25);
+    --text-main: #f5f0e6;
+    --text-sub: #a7a6ad;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    color: var(--text-main);
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 40px),
+      radial-gradient(circle at 50% -10%, #3a1414 0%, #14090c 45%, #050405 100%);
+    overflow-x: hidden;
+  }
+
+  .stripe-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 8px;
+    background: repeating-linear-gradient(-45deg, var(--gold) 0 18px, #111 18px 36px);
+    opacity: 0.85;
+    z-index: 5;
+  }
+  .stripe-bar.bottom { top: auto; bottom: 0; }
+
+  .card {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border: 1px solid var(--panel-border);
+    border-radius: 26px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 25px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+  }
+
+  .title {
+    text-align: center;
+    font-family: 'Bebas Neue', 'Noto Sans KR', sans-serif;
+    font-size: 34px;
+    letter-spacing: 4px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-dark));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin: 0 0 2px;
+    text-shadow: 0 2px 12px rgba(244,196,48,0.25);
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-sub);
+    margin-bottom: 10px;
+  }
+
+  /* ---- bodybuilder mascot ---- */
+  .mascot-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 6px;
+  }
+  #mascot {
+    width: 132px;
+    height: 162px;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+    transform-origin: center bottom;
+  }
+  #mascot.exercising { animation: flexPulse 0.55s ease-in-out infinite; }
+  #mascot.resting { animation: breathe 2.6s ease-in-out infinite; }
+  @keyframes flexPulse {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.045) rotate(-1deg); }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50% { transform: scale(1.015) translateY(-2px); }
+  }
+  #sweat {
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #mascot.exercising #sweat { opacity: 1; animation: dripFall 0.9s ease-in infinite; }
+  @keyframes dripFall {
+    0% { transform: translateY(0); opacity: 0.9; }
+    100% { transform: translateY(10px); opacity: 0; }
+  }
+
+  .quote {
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--gold);
+    min-height: 16px;
+    margin-bottom: 14px;
+    letter-spacing: 0.3px;
+  }
+
+  .mode-badge {
+    display: inline-block;
+    margin: 0 auto 6px;
+    padding: 5px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+  .mode-row { text-align: center; }
+  .mode-badge.exercise { background: rgba(255,59,59,0.16); color: var(--red); border: 1px solid rgba(255,59,59,0.4); }
+  .mode-badge.rest { background: rgba(80,170,255,0.16); color: #6fb8ff; border: 1px solid rgba(80,170,255,0.4); }
+  .mode-badge.idle { background: rgba(255,255,255,0.08); color: var(--text-sub); border: 1px solid var(--panel-border); }
+
+  .display {
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 2px;
+    line-height: 1.05;
+    margin: 4px 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .display .ms { font-size: 30px; color: var(--text-sub); }
+
+  .current-label {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-sub);
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+  }
+
+  .name-input {
+    width: 100%;
+    padding: 11px 14px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: rgba(0,0,0,0.25);
+    color: var(--text-main);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+  .name-input::placeholder { color: #6b6a72; }
+  .name-input:disabled { opacity: 0.4; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: rgba(0,0,0,0.28);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .stat .stat-label {
+    font-size: 10.5px;
+    color: var(--text-sub);
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .stat .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+  .stat.total .stat-value { color: var(--gold); }
+  .stat.ex .stat-value { color: var(--red); }
+  .stat.rest .stat-value { color: #6fb8ff; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  button {
+    flex: 1;
+    border: none;
+    padding: 15px 0;
+    border-radius: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 900;
+    font-size: 14.5px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.08s ease, filter 0.15s ease, opacity 0.15s ease;
+    color: #1a1206;
+  }
+  button:active { transform: scale(0.96); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  button:not(:disabled):hover { filter: brightness(1.1); }
+
+  #startBtn { background: linear-gradient(180deg, var(--gold-bright), var(--gold-dark)); color: #241a06; box-shadow: 0 6px 16px rgba(244,196,48,0.25); }
+  #toggleBtn.to-rest { background: linear-gradient(180deg, #6fb8ff, #2b6fc9); color: #06182c; }
+  #toggleBtn.to-exercise { background: linear-gradient(180deg, #ff6b6b, var(--red-dark)); color: #260707; }
+  #endBtn { background: rgba(255,255,255,0.1); color: var(--text-main); flex: 0.6; }
+  #resetBtn { background: rgba(255,255,255,0.1); color: var(--text-main); }
+
+  .history {
+    max-height: 200px;
+    overflow-y: auto;
+    border-top: 1px dashed var(--panel-border);
+    padding-top: 6px;
+  }
+  .history::-webkit-scrollbar { width: 6px; }
+  .history::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+
+  .hist-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    animation: slideIn 0.25s ease;
+    font-size: 13.5px;
+  }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-item .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+  .hist-item .name { flex: 1; font-weight: 700; }
+  .hist-item.exercise .name { color: #ffb3b3; }
+  .hist-item.rest .name { color: #b9dcff; }
+  .hist-item .dur { font-family: 'Bebas Neue', sans-serif; font-size: 15px; color: var(--text-sub); letter-spacing: 1px; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .empty-hint {
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 12.5px;
+    padding: 10px 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stripe-bar"></div>
+<div class="stripe-bar bottom"></div>
+
+<div class="card">
+  <div class="title">GYM TIMER</div>
+  <div class="subtitle">POWER · SWEAT · GAINS</div>
+
+  <div class="mascot-wrap">
+    <svg id="mascot" viewBox="0 0 160 196" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="skinGrad" x1="0.1" y1="0" x2="0.9" y2="1">
+          <stop offset="0%" stop-color="#f3c48d"/>
+          <stop offset="45%" stop-color="#d69a5f"/>
+          <stop offset="100%" stop-color="#93602f"/>
+        </linearGradient>
+        <linearGradient id="skinGradLeg" x1="0" y1="0" x2="1" y2="0.2">
+          <stop offset="0%" stop-color="#e2ab6e"/>
+          <stop offset="100%" stop-color="#8a5a2c"/>
+        </linearGradient>
+        <linearGradient id="shortsGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff4d4d"/>
+          <stop offset="100%" stop-color="#7a0d0d"/>
+        </linearGradient>
+        <linearGradient id="hairGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3d2718"/>
+          <stop offset="100%" stop-color="#180d06"/>
+        </linearGradient>
+        <radialGradient id="shine" cx="35%" cy="30%" r="65%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+          <stop offset="60%" stop-color="#ffffff" stop-opacity="0.1"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- ground shadow -->
+      <ellipse cx="80" cy="190" rx="36" ry="5.5" fill="#000" opacity="0.35"/>
+
+      <!-- legs -->
+      <path d="M58 128 Q56 150 60 168 L74 168 Q75 148 74 128 Z" fill="url(#skinGradLeg)" stroke="#5e3a1a" stroke-width="1" stroke-opacity="0.35"/>
+      <path d="M102 128 Q104 150 100 168 L86 168 Q85 148 86 128 Z" fill="url(#skinGradLeg)" stroke="#5e3a1a" stroke-width="1" stroke-opacity="0.35"/>
+      <path d="M60 168 L74 168 L74 166 Q67 163 60 166 Z" fill="rgba(0,0,0,0.15)"/>
+      <path d="M100 168 L86 168 L86 166 Q93 163 100 166 Z" fill="rgba(0,0,0,0.15)"/>
+
+      <!-- shoes -->
+      <path d="M53 168 L76 168 Q80 173 76 179 L50 181 Q45 175 53 168 Z" fill="#1c1c1c"/>
+      <path d="M107 168 L84 168 Q80 173 84 179 L110 181 Q115 175 107 168 Z" fill="#1c1c1c"/>
+      <rect x="49" y="178" width="28" height="3.4" rx="1.6" fill="#eae6df"/>
+      <rect x="83" y="178" width="28" height="3.4" rx="1.6" fill="#eae6df"/>
+      <path d="M58 171 L70 171 M56 175 L73 175" stroke="#f4c430" stroke-width="1.3" opacity="0.8"/>
+      <path d="M102 171 L90 171 M104 175 L87 175" stroke="#f4c430" stroke-width="1.3" opacity="0.8"/>
+
+      <!-- shorts -->
+      <path d="M50 112 Q80 128 110 112 L112 138 Q80 152 48 138 Z" fill="url(#shortsGrad)" stroke="#4a0808" stroke-width="1"/>
+      <path d="M48 138 Q80 152 112 138" stroke="#2b0505" stroke-width="2" fill="none" opacity="0.6"/>
+      <path d="M64 116 L60 148 M96 116 L100 148" stroke="#f4c430" stroke-width="1.6" opacity="0.7"/>
+
+      <!-- torso -->
+      <path d="M44 60 Q80 44 116 60 Q120 84 110 108 Q80 124 50 108 Q40 84 44 60 Z" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1.1" stroke-opacity="0.4"/>
+
+      <!-- chest + ab definition -->
+      <path d="M80 62 L80 108" stroke="rgba(0,0,0,0.22)" stroke-width="2" fill="none"/>
+      <path d="M58 66 Q69 72 80 68 Q91 72 102 66" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" fill="none"/>
+      <path d="M60 82 Q80 88 100 82" stroke="rgba(0,0,0,0.18)" stroke-width="2" fill="none"/>
+      <path d="M62 94 Q80 100 98 94" stroke="rgba(0,0,0,0.18)" stroke-width="2" fill="none"/>
+      <path d="M62 106 Q80 111 98 106" stroke="rgba(0,0,0,0.16)" stroke-width="1.8" fill="none"/>
+      <path d="M50 78 Q45 92 52 106" stroke="rgba(0,0,0,0.2)" stroke-width="2" fill="none"/>
+      <path d="M110 78 Q115 92 108 106" stroke="rgba(0,0,0,0.2)" stroke-width="2" fill="none"/>
+      <ellipse cx="66" cy="68" rx="12" ry="8" fill="url(#shine)"/>
+      <ellipse cx="94" cy="68" rx="12" ry="8" fill="url(#shine)"/>
+      <ellipse cx="80" cy="90" rx="10" ry="7" fill="url(#shine)" opacity="0.6"/>
+
+      <!-- shoulders / traps highlight -->
+      <ellipse cx="48" cy="60" rx="9" ry="7" fill="url(#shine)"/>
+      <ellipse cx="112" cy="60" rx="9" ry="7" fill="url(#shine)"/>
+
+      <!-- neck -->
+      <path d="M70 46 L90 46 L88 58 Q80 62 72 58 Z" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="0.8" stroke-opacity="0.3"/>
+
+      <!-- ears -->
+      <ellipse cx="61" cy="34" rx="3.2" ry="5" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="0.6" stroke-opacity="0.4"/>
+      <ellipse cx="99" cy="34" rx="3.2" ry="5" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="0.6" stroke-opacity="0.4"/>
+
+      <!-- head -->
+      <circle cx="80" cy="32" r="19" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1" stroke-opacity="0.35"/>
+
+      <!-- hair -->
+      <path d="M61 26 Q60 10 80 8 Q100 10 99 26 Q94 14 80 13 Q66 14 61 26 Z" fill="url(#hairGrad)"/>
+      <path d="M61 27 Q59 33 62 39" stroke="url(#hairGrad)" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M99 27 Q101 33 98 39" stroke="url(#hairGrad)" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+      <!-- face -->
+      <path d="M68 24 L74 22" stroke="#3a2415" stroke-width="2" stroke-linecap="round"/>
+      <path d="M92 24 L86 22" stroke="#3a2415" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="72.5" cy="30" rx="2.1" ry="2.6" fill="#241407"/>
+      <ellipse cx="87.5" cy="30" rx="2.1" ry="2.6" fill="#241407"/>
+      <path d="M80 31 L79 37 L81.5 37.5" stroke="#7a4a22" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <path d="M73 42 Q80 40 87 42" stroke="#5a3418" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M70 46 Q80 50 90 46" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" fill="none"/>
+
+      <!-- left arm flexing (viewer's left) -->
+      <g>
+        <path d="M46 62 Q22 60 17 82 Q15 98 29 103" stroke="url(#skinGrad)" stroke-width="16" stroke-linecap="round" fill="none" stroke-opacity="0.98"/>
+        <ellipse cx="22" cy="80" rx="16" ry="19" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1" stroke-opacity="0.35"/>
+        <path d="M12 78 Q22 66 33 70" stroke="rgba(0,0,0,0.2)" stroke-width="2" fill="none"/>
+        <ellipse cx="17" cy="72" rx="6" ry="8" fill="url(#shine)"/>
+        <path d="M20 86 Q14 68 29 53" stroke="url(#skinGrad)" stroke-width="14" stroke-linecap="round" fill="none"/>
+        <path d="M17 78 Q16 68 22 60" stroke="rgba(120,40,40,0.25)" stroke-width="1.2" fill="none"/>
+        <circle cx="30" cy="50" r="10.5" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1" stroke-opacity="0.35"/>
+        <path d="M23 50 L37 50 M24 46 L36 46" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+      </g>
+
+      <!-- right arm flexing -->
+      <g>
+        <path d="M114 62 Q138 60 143 82 Q145 98 131 103" stroke="url(#skinGrad)" stroke-width="16" stroke-linecap="round" fill="none" stroke-opacity="0.98"/>
+        <ellipse cx="138" cy="80" rx="16" ry="19" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1" stroke-opacity="0.35"/>
+        <path d="M148 78 Q138 66 127 70" stroke="rgba(0,0,0,0.2)" stroke-width="2" fill="none"/>
+        <ellipse cx="143" cy="72" rx="6" ry="8" fill="url(#shine)"/>
+        <path d="M140 86 Q146 68 131 53" stroke="url(#skinGrad)" stroke-width="14" stroke-linecap="round" fill="none"/>
+        <path d="M143 78 Q144 68 138 60" stroke="rgba(120,40,40,0.25)" stroke-width="1.2" fill="none"/>
+        <circle cx="130" cy="50" r="10.5" fill="url(#skinGrad)" stroke="#6b431f" stroke-width="1" stroke-opacity="0.35"/>
+        <path d="M123 50 L137 50 M124 46 L136 46" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+      </g>
+
+      <!-- sweat drops -->
+      <g id="sweat">
+        <path d="M56 24 q3 6 0 9 a3.1 3.1 0 1 1 -6 0 q0 -3 3 -9 z" fill="#7fd4ff"/>
+        <path d="M108 30 q3 6 0 9 a3.1 3.1 0 1 1 -6 0 q0 -3 3 -9 z" fill="#7fd4ff"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="quote" id="quote">시작 버튼을 눌러 오늘의 운동을 시작하세요!</div>
+
+  <div class="mode-row">
+    <span class="mode-badge idle" id="modeBadge">대기 중</span>
+  </div>
+
+  <div class="display" id="display">00:00<span class="ms">.00</span></div>
+  <div class="current-label" id="currentLabel">현재 세션 시간</div>
+
+  <input type="text" id="nameInput" class="name-input" placeholder="운동 이름 입력 (예: 벤치프레스)" disabled>
+
+  <div class="stats-grid">
+    <div class="stat total">
+      <div class="stat-label">총 시간</div>
+      <div class="stat-value" id="statTotal">00:00</div>
+    </div>
+    <div class="stat ex">
+      <div class="stat-label">운동 시간</div>
+      <div class="stat-value" id="statExercise">00:00</div>
+    </div>
+    <div class="stat rest">
+      <div class="stat-label">휴식 시간</div>
+      <div class="stat-value" id="statRest">00:00</div>
+    </div>
+  </div>
+
+  <div class="controls" id="startRow">
+    <button id="startBtn">💪 운동 시작</button>
+  </div>
+  <div class="controls" id="activeRow" style="display:none;">
+    <button id="toggleBtn" class="to-rest">😤 쉬는 시간</button>
+    <button id="endBtn">🏁 종료</button>
+  </div>
+  <div class="controls" id="resetRow" style="display:none;">
+    <button id="resetBtn">🔄 새 세션 시작</button>
+  </div>
+
+  <div class="history" id="history">
+    <div class="empty-hint" id="emptyHint">기록된 세트가 없습니다</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const EXERCISE_QUOTES = [
+    "한 번 더! 할 수 있다! 🔥",
+    "고통 없이는 얻는 것도 없다!",
+    "오늘의 땀이 내일의 힘이 된다!",
+    "포기하지 않는 자가 승리한다!",
+    "한계는 네가 정하는 것이다!",
+    "무거워도 버텨라, 성장은 그 다음이다!"
+  ];
+  const REST_QUOTES = [
+    "숨을 고르고 다음 세트를 준비하세요 😮‍💨",
+    "잘하고 있어요, 조금만 쉬었다 가죠.",
+    "물 한 모금 마시고 다시 시작해요.",
+    "회복도 훈련의 일부입니다."
+  ];
+
+  let sessionActive = false;
+  let mode = null; // 'exercise' | 'rest'
+  let segmentStart = 0;
+  let segments = [];
+  let setCount = 0;
+  let rafId = null;
+  let quoteTimer = null;
+
+  const mascot = document.getElementById('mascot');
+  const quoteEl = document.getElementById('quote');
+  const modeBadge = document.getElementById('modeBadge');
+  const displayEl = document.getElementById('display');
+  const currentLabel = document.getElementById('currentLabel');
+  const nameInput = document.getElementById('nameInput');
+  const statTotal = document.getElementById('statTotal');
+  const statExercise = document.getElementById('statExercise');
+  const statRest = document.getElementById('statRest');
+  const startRow = document.getElementById('startRow');
+  const activeRow = document.getElementById('activeRow');
+  const resetRow = document.getElementById('resetRow');
+  const startBtn = document.getElementById('startBtn');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const endBtn = document.getElementById('endBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const historyEl = document.getElementById('history');
+  const emptyHint = document.getElementById('emptyHint');
+
+  function fmt(ms, withCentis) {
+    const total = Math.max(0, Math.floor(ms));
+    const h = Math.floor(total / 3600000);
+    const m = Math.floor((total % 3600000) / 60000);
+    const s = Math.floor((total % 60000) / 1000);
+    const c = Math.floor((total % 1000) / 10);
+    const pad = (n, l) => String(n).padStart(l, '0');
+    const main = h > 0 ? `${h}:${pad(m,2)}:${pad(s,2)}` : `${pad(m,2)}:${pad(s,2)}`;
+    return withCentis ? { main, centis: pad(c,2) } : { main };
+  }
+
+  function sumByType(type) {
+    return segments.filter(s => s.type === type).reduce((a, s) => a + s.duration, 0);
+  }
+
+  function tick() {
+    const now = performance.now();
+    const currentElapsed = now - segmentStart;
+
+    const t = fmt(currentElapsed, true);
+    displayEl.innerHTML = `${t.main}<span class="ms">.${t.centis}</span>`;
+
+    const exTotal = sumByType('exercise') + (mode === 'exercise' ? currentElapsed : 0);
+    const restTotal = sumByType('rest') + (mode === 'rest' ? currentElapsed : 0);
+
+    statExercise.textContent = fmt(exTotal).main;
+    statRest.textContent = fmt(restTotal).main;
+    statTotal.textContent = fmt(exTotal + restTotal).main;
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function cycleQuotes() {
+    const pool = mode === 'exercise' ? EXERCISE_QUOTES : REST_QUOTES;
+    quoteEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function updateModeUI() {
+    mascot.classList.remove('exercising', 'resting');
+    modeBadge.classList.remove('exercise', 'rest', 'idle');
+
+    if (!sessionActive) {
+      modeBadge.classList.add('idle');
+      modeBadge.textContent = '대기 중';
+      currentLabel.textContent = '현재 세션 시간';
+      nameInput.disabled = true;
+      return;
+    }
+
+    if (mode === 'exercise') {
+      mascot.classList.add('exercising');
+      modeBadge.classList.add('exercise');
+      modeBadge.textContent = `🔥 운동 중 · 세트 ${setCount}`;
+      currentLabel.textContent = '현재 운동 시간';
+      nameInput.disabled = false;
+      toggleBtn.textContent = '😤 쉬는 시간';
+      toggleBtn.className = 'to-rest';
+    } else {
+      mascot.classList.add('resting');
+      modeBadge.classList.add('rest');
+      modeBadge.textContent = '😮‍💨 휴식 중';
+      currentLabel.textContent = '현재 휴식 시간';
+      nameInput.disabled = true;
+      toggleBtn.textContent = '🔥 운동 계속';
+      toggleBtn.className = 'to-exercise';
+    }
+
+    cycleQuotes();
+    clearInterval(quoteTimer);
+    quoteTimer = setInterval(cycleQuotes, 4500);
+  }
+
+  function renderHistory() {
+    historyEl.innerHTML = '';
+    if (segments.length === 0) {
+      historyEl.appendChild(emptyHint);
+      return;
+    }
+    segments.forEach(seg => {
+      const item = document.createElement('div');
+      item.className = `hist-item ${seg.type}`;
+      const icon = seg.type === 'exercise' ? '💪' : '😮‍💨';
+      item.innerHTML = `
+        <span class="icon">${icon}</span>
+        <span class="name">${seg.name}</span>
+        <span class="dur">${fmt(seg.duration).main}</span>
+      `;
+      historyEl.appendChild(item);
+    });
+    historyEl.scrollTop = historyEl.scrollHeight;
+  }
+
+  function startSession() {
+    sessionActive = true;
+    mode = 'exercise';
+    setCount = 1;
+    segments = [];
+    segmentStart = performance.now();
+    nameInput.value = '';
+
+    startRow.style.display = 'none';
+    activeRow.style.display = 'flex';
+    resetRow.style.display = 'none';
+
+    updateModeUI();
+    renderHistory();
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function toggleMode() {
+    const now = performance.now();
+    const duration = now - segmentStart;
+    const name = mode === 'exercise'
+      ? (nameInput.value.trim() || `운동 ${setCount}`)
+      : '휴식';
+    segments.push({ type: mode, name, duration });
+
+    if (mode === 'exercise') {
+      mode = 'rest';
+    } else {
+      mode = 'exercise';
+      setCount++;
+    }
+    segmentStart = now;
+    nameInput.value = '';
+
+    updateModeUI();
+    renderHistory();
+  }
+
+  function endSession() {
+    const now = performance.now();
+    const duration = now - segmentStart;
+    const name = mode === 'exercise'
+      ? (nameInput.value.trim() || `운동 ${setCount}`)
+      : '휴식';
+    segments.push({ type: mode, name, duration });
+
+    sessionActive = false;
+    cancelAnimationFrame(rafId);
+    clearInterval(quoteTimer);
+
+    activeRow.style.display = 'none';
+    resetRow.style.display = 'flex';
+
+    modeBadge.classList.remove('exercise', 'rest');
+    modeBadge.classList.add('idle');
+    modeBadge.textContent = '🏆 운동 종료';
+    quoteEl.textContent = '오늘도 수고하셨습니다! 최고예요 💪';
+    currentLabel.textContent = '마지막 세션 시간';
+    nameInput.disabled = true;
+
+    renderHistory();
+  }
+
+  function resetAll() {
+    sessionActive = false;
+    mode = null;
+    segments = [];
+    setCount = 0;
+    cancelAnimationFrame(rafId);
+    clearInterval(quoteTimer);
+
+    displayEl.innerHTML = '00:00<span class="ms">.00</span>';
+    statTotal.textContent = '00:00';
+    statExercise.textContent = '00:00';
+    statRest.textContent = '00:00';
+
+    startRow.style.display = 'flex';
+    activeRow.style.display = 'none';
+    resetRow.style.display = 'none';
+
+    quoteEl.textContent = '시작 버튼을 눌러 오늘의 운동을 시작하세요!';
+    mascot.classList.remove('exercising', 'resting');
+
+    renderHistory();
+    updateModeUI();
+  }
+
+  startBtn.addEventListener('click', startSession);
+  toggleBtn.addEventListener('click', toggleMode);
+  endBtn.addEventListener('click', endSession);
+  resetBtn.addEventListener('click', resetAll);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!sessionActive && startRow.style.display !== 'none') startBtn.click();
+      else if (sessionActive) toggleBtn.click();
+    }
+  });
+
+  updateModeUI();
+})();
+</script>
+
+</body>
+</html>
